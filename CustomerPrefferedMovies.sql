@@ -1,11 +1,18 @@
+/****** Object:   Used Shakila Movies Database  to find out customer interest based on their last wathed movies
+and recomanndation for Top 5 MOVIES for a customer which they had not previously seen ******/
+
 USE [sakila]
 GO
 
+/****** Object:  StoredProcedure [dbo].[getCustomerMovieRecommend]    Script Date: 3/28/2021 10:25:34 PM ******/
 SET ANSI_NULLS ON
 GO
+
 SET QUOTED_IDENTIFIER ON
 GO
-create procedure [getCustomerMovieRecommend]
+/****User Can Pass the Customer Name Parameter to find out individiual customer preference****/
+
+Create procedure [dbo].[getCustomerMovieRecommend]
     @Customer_name   varchar(255)  
 as
    
@@ -26,6 +33,8 @@ select 'Inactive Customer'
 end
     ELSE BEGIN
 
+/***** Find Out The Movies whcih already see by Customer *****/
+
 CREATE TABLE #AlreadyWatchedList (
     id  int IDENTITY(1,1) PRIMARY KEY,
     FilmId varchar(255) NOT NULL,
@@ -33,10 +42,13 @@ CREATE TABLE #AlreadyWatchedList (
 insert into #AlreadyWatchedList
 select film_id from [dbo].[inventory] a join [dbo].[rental] b on a.inventory_id=b.inventory_id where customer_id=@Customer_id
 
+/***Watch Count of the movies***/
+
 declare @WatchedCnt  int
 select @WatchedCnt=count(1) from #AlreadyWatchedList
 
 
+/***** Find Out The Preferredlanguage from Movies whcih already seen by Customer *****/
 
 CREATE TABLE #Preferredlanguage (
     id  int IDENTITY(1,1) PRIMARY KEY,
@@ -47,6 +59,7 @@ INSERT INTO #Preferredlanguage
 select language_id , count(1)*100.00/@WatchedCnt from [dbo].film a join #AlreadyWatchedList b on a.film_id =b.FilmId
 group by language_id
 
+/***** Find Out The PreferredActor from Movies whcih already seen by Customer *****/
 
 CREATE TABLE #PreferredActor (
     id  int IDENTITY(1,1) PRIMARY KEY,
@@ -57,6 +70,7 @@ INSERT INTO #PreferredActor
 select Actor_id , count(1)*100.00/@WatchedCnt from [dbo].film_actor a join #AlreadyWatchedList b on a.film_id =b.FilmId
 group by Actor_id
 
+/***** Find Out The PreferredCategory from Movies whcih already seen by Customer *****/
 
 CREATE TABLE #PreferredCategory (
     id  int IDENTITY(1,1) PRIMARY KEY,
@@ -67,7 +81,8 @@ INSERT INTO #PreferredCategory
 select category_id , count(1)*100.00/@WatchedCnt from [dbo].film_category a join #AlreadyWatchedList b on a.film_id =b.FilmId
 group by category_id
 
----------------------------------------
+/***** Find Out The Movies whcih customer did not see yet *****/
+
 CREATE TABLE #UnWatchedList (
     id  int IDENTITY(1,1) PRIMARY KEY,
     FilmId varchar(255) NOT NULL,
@@ -78,6 +93,7 @@ select film_id,Title from film where film_id not in (select filmid from #Already
 
 
 
+
 select a.film_id,c.NymberOutOf100 into #UnWatchedList_categoryScore from  [dbo].film_category a join #UnWatchedList b on a.film_id =b.FilmId  left join #PreferredCategory c  on a.category_id=c.Category_id
 
 select a.film_id,c.NymberOutOf100 into #UnWatchedList_languageScore from  [dbo].film a join #UnWatchedList b on a.film_id =b.FilmId  left join #Preferredlanguage c  on a.language_id=c.language_id
@@ -85,6 +101,7 @@ select a.film_id,c.NymberOutOf100 into #UnWatchedList_languageScore from  [dbo].
 select a.film_id,sum(c.NymberOutOf100) NymberOutOf100 into #UnWatchedList_ActorScore from  [dbo].film_actor a join #UnWatchedList b on a.film_id =b.FilmId  left join #PreferredActor c  on a.actor_id=c.actor_id
 group by a.film_id
 
+/***Top 5 Customer prefference based on percentage of three criteria ***/
 
 select top 5 Title,b.NymberOutOf100 categoryScore ,
  c.NymberOutOf100 languageScore,
@@ -98,6 +115,7 @@ join #UnWatchedList_ActorScore d on a.FilmId=d.film_id
 
     END
 END
+GO
 
 
 Execute  [dbo].[getCustomerMovieRecommend] "MARY SMITH"
